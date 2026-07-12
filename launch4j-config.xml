@@ -1,0 +1,37 @@
+<launch4jConfig>
+    <dontWrapJar>false</dontWrapJar>
+    <headerType>gui</headerType>
+    <jar>target/AutoMacroPro.jar</jar>
+    <outfile>dist/AutoMacroPro.exe</outfile>
+    <errTitle>AutoMacro Pro</errTitle>
+    <downloadUrl>https://www.java.com/download</downloadUrl>
+    <classPath>
+        <mainClass>com.automacropro.Main</mainClass>
+    </classPath>
+    <!--
+        This wrapper does NOT bundle a JRE, so the target machine needs Java 17+
+        already installed. If you want a fully self-contained .exe instead,
+        use jpackage (see build-exe.bat / README.md) - it bundles the runtime
+        automatically. To bundle a portable JRE with Launch4j instead, point
+        <bundledJrePath> at a JRE folder you ship alongside the .exe, e.g.:
+        <jre><path>jre</path><minVersion>17.0.0</minVersion></jre>
+    -->
+    <jre>
+        <minVersion>17.0.0</minVersion>
+        <!-- JNativeHook calls System.loadLibrary from an unnamed module; JDK 24+
+             warns about this today (JEP 472) and may deny it by default in a
+             future release. This keeps global hotkeys working either way. -->
+        <opt>--enable-native-access=ALL-UNNAMED</opt>
+    </jre>
+    <versionInfo>
+        <fileVersion>1.0.0.0</fileVersion>
+        <txtFileVersion>1.0.0</txtFileVersion>
+        <fileDescription>AutoMacro Pro - Workflow Automation and Auto-Clicker</fileDescription>
+        <copyright>2026</copyright>
+        <productVersion>1.0.0.0</productVersion>
+        <txtProductVersion>1.0.0</txtProductVersion>
+        <productName>AutoMacro Pro</productName>
+        <internalName>AutoMacroPro</internalName>
+        <originalFilename>AutoMacroPro.exe</originalFilename>
+    </versionInfo>
+</launch4jConfig>

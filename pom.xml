@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.automacropro</groupId>
+    <artifactId>automacro-pro</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <name>AutoMacro Pro</name>
+    <description>Workflow Automation &amp; Auto-Clicker (Autoclicker + Macro Sequencer) built with Java Swing,
+        java.awt.Robot, and JNativeHook for global hotkeys.</description>
+
+    <properties>
+        <maven.compiler.release>17</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- Single place to bump the JNativeHook version. -->
+        <jnativehook.version>2.2.2</jnativehook.version>
+        <mainClass>com.automacropro.Main</mainClass>
+    </properties>
+
+    <dependencies>
+        <!--
+            The ONLY external dependency in this whole project. Maven/NetBeans
+            downloads this automatically from Maven Central the first time the
+            project is opened/built - no manual jar hunting required.
+        -->
+        <dependency>
+            <groupId>com.github.kwhat</groupId>
+            <artifactId>jnativehook</artifactId>
+            <version>${jnativehook.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>AutoMacroPro</finalName>
+        <plugins>
+            <!-- Bundles JNativeHook's classes + native libs straight into one runnable jar. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.1</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>${mainClass}</mainClass>
+                                </transformer>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Lets `mvn exec:java` run the app directly during development (NetBeans "Run Project" also uses this). -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.2.0</version>
+                <configuration>
+                    <mainClass>${mainClass}</mainClass>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
