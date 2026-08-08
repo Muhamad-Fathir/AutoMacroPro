@@ -16,11 +16,24 @@ public class AppSettings {
     public static final String HK_MACRO_START = "macro.start";
     public static final String HK_MACRO_STOP = "macro.stop";
     public static final String HK_MACRO_TOGGLE = "macro.toggle";
+    /** Start/stop the Macro Recorder. */
+    public static final String HK_MACRO_RECORD = "macro.record";
+    /** Window Manager: re-scan the window list. */
+    public static final String HK_WM_REFRESH = "windowmanager.refresh";
+    /** Window Manager: make the selected window borderless. */
+    public static final String HK_WM_BORDERLESS = "windowmanager.borderless";
 
     private AutoClickerSettings autoClickerSettings = AutoClickerSettings.defaults();
     private LoopMode lastMacroLoopMode = LoopMode.ONCE;
     private boolean failsafeEnabled = true;
     private Map<String, HotkeyBinding> hotkeys = new LinkedHashMap<>();
+
+    /**
+     * UI language as a BCP-47 tag ("en", "id"). Defaults to English - see
+     * {@code I18n}. Stored as a tag rather than a Locale so the JSON stays
+     * human-editable and the model keeps no dependency on the i18n layer.
+     */
+    private String languageTag = "en";
 
     public AppSettings() {
         // sensible factory defaults so the app is usable before the user sets anything
@@ -30,6 +43,9 @@ public class AppSettings {
         hotkeys.put(HK_MACRO_START, HotkeyBinding.fromMap(HK_MACRO_START, null));
         hotkeys.put(HK_MACRO_STOP, HotkeyBinding.fromMap(HK_MACRO_STOP, null));
         hotkeys.put(HK_MACRO_TOGGLE, HotkeyBinding.fromMap(HK_MACRO_TOGGLE, null));
+        hotkeys.put(HK_MACRO_RECORD, HotkeyBinding.fromMap(HK_MACRO_RECORD, null));
+        hotkeys.put(HK_WM_REFRESH, HotkeyBinding.fromMap(HK_WM_REFRESH, null));
+        hotkeys.put(HK_WM_BORDERLESS, HotkeyBinding.fromMap(HK_WM_BORDERLESS, null));
     }
 
     public AutoClickerSettings getAutoClickerSettings() {
@@ -56,6 +72,14 @@ public class AppSettings {
         this.failsafeEnabled = failsafeEnabled;
     }
 
+    public String getLanguageTag() {
+        return languageTag;
+    }
+
+    public void setLanguageTag(String languageTag) {
+        this.languageTag = (languageTag == null || languageTag.isBlank()) ? "en" : languageTag;
+    }
+
     public HotkeyBinding getHotkey(String id) {
         return hotkeys.computeIfAbsent(id, k -> HotkeyBinding.fromMap(k, null));
     }
@@ -73,6 +97,7 @@ public class AppSettings {
         m.put("autoClickerSettings", autoClickerSettings.toMap());
         m.put("lastMacroLoopMode", lastMacroLoopMode.name());
         m.put("failsafeEnabled", failsafeEnabled);
+        m.put("languageTag", languageTag);
         Map<String, Object> hkMap = new LinkedHashMap<>();
         for (Map.Entry<String, HotkeyBinding> e : hotkeys.entrySet()) {
             hkMap.put(e.getKey(), e.getValue().toMap());
@@ -100,6 +125,10 @@ public class AppSettings {
         }
         Object fs = m.get("failsafeEnabled");
         s.failsafeEnabled = !(fs instanceof Boolean) || (Boolean) fs; // default true if missing/old file
+        Object lang = m.get("languageTag");
+        if (lang != null) {
+            s.setLanguageTag(String.valueOf(lang));
+        }
         Object hk = m.get("hotkeys");
         if (hk instanceof Map) {
             for (Map.Entry<String, Object> e : ((Map<String, Object>) hk).entrySet()) {

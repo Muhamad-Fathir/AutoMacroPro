@@ -65,7 +65,7 @@ public class HotkeyBinding {
 
     public String describe() {
         if (isUnbound()) {
-            return "(belum diatur)";
+            return com.automacropro.util.I18n.t("common.unset");
         }
         StringBuilder sb = new StringBuilder();
         if (ctrl) sb.append("Ctrl+");

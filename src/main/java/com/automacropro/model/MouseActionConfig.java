@@ -34,6 +34,17 @@ public class MouseActionConfig {
     // (saved before this feature existed) load safely without this key.
     private int holdDurationMs = 0;
 
+    /**
+     * Humanizer: scatter each click uniformly inside a circle of this radius
+     * (px) around the target point. 0 = exact targeting, which is the default
+     * so behaviour is unchanged unless the user opts in.
+     *
+     * Lives here rather than in {@link AutoClickerSettings} so the Macro
+     * Sequencer's MOUSE steps get it too - both modules route through the same
+     * {@code RobotExecutor}.
+     */
+    private int positionJitterPx = 0;
+
     public MouseActionConfig() {
     }
 
@@ -125,6 +136,14 @@ public class MouseActionConfig {
         this.holdDurationMs = holdDurationMs;
     }
 
+    public int getPositionJitterPx() {
+        return positionJitterPx;
+    }
+
+    public void setPositionJitterPx(int positionJitterPx) {
+        this.positionJitterPx = Math.max(0, positionJitterPx);
+    }
+
     /** Short human readable summary, used in the macro step list UI. */
     public String describe() {
         StringBuilder sb = new StringBuilder();
@@ -156,6 +175,7 @@ public class MouseActionConfig {
         m.put("dragSteps", dragSteps);
         m.put("dragDurationMs", dragDurationMs);
         m.put("holdDurationMs", holdDurationMs);
+        m.put("positionJitterPx", positionJitterPx);
         return m;
     }
 
@@ -177,6 +197,8 @@ public class MouseActionConfig {
         // holdDurationMs did not exist in older project files; intOf() already
         // falls back to the default below if the key is missing or malformed.
         c.holdDurationMs = intOf(m, "holdDurationMs", 0);
+        // Also absent from older files - defaults to 0 (exact targeting).
+        c.positionJitterPx = Math.max(0, intOf(m, "positionJitterPx", 0));
         return c;
     }
 

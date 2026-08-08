@@ -1,5 +1,22 @@
+# ========== Maven & Build Output ==========
 target/
 dist/
-*.log
 dependency-reduced-pom.xml
+
+# ========== Logs ==========
+*.log
+
+# ========== IDE & Local Configurations ==========
 .nbproject/
+nbproject/private/
+.vscode/
+.idea/
+.DS_Store
+
+# ========== Third-Party / Local Tools ==========
+# (Mencegah pengaturan lokal Claude dan database Freebuff ter-upload)
+.claude/
+.freebuff/
+*.db
+*.db-shm
+*.db-wal

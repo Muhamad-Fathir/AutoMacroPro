@@ -6,5 +6,6 @@ package com.automacropro.model;
 public enum ActionType {
     MOUSE,
     KEYBOARD,
-    DELAY
+    DELAY,
+    SCROLL
 }

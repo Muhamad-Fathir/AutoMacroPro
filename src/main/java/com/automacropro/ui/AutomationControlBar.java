@@ -1,10 +1,14 @@
 package com.automacropro.ui;
 
+import com.automacropro.model.HotkeyBinding;
+import com.automacropro.util.I18n;
+
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.Timer;
 import javax.swing.border.EmptyBorder;
 import java.awt.Font;
 import java.awt.FlowLayout;
@@ -33,14 +37,14 @@ public class AutomationControlBar extends JPanel {
         void onFailsafeToggle(boolean enabled);
     }
 
-    private final JButton startBtn = UiTheme.createButton("Start", UiTheme.START_BG, UiTheme.START_FG);
-    private final JButton stopBtn = UiTheme.createButton("Stop", UiTheme.STOP_BG, UiTheme.STOP_FG);
-    private final JButton toggleBtn = UiTheme.createButton("Toggle", UiTheme.TOGGLE_BG, UiTheme.TOGGLE_FG);
-    private final JButton saveBtn = new JButton("Save Settings");
-    private final JButton resetBtn = new JButton("Reset Settings");
-    private final JButton hotkeyBtn = new JButton("Configure Hotkeys...");
-    private final JCheckBox failsafeCheck = new JCheckBox("Failsafe Aktif (kursor ke pojok layar = stop)", true);
-    private final JLabel statusLabel = new JLabel("Status: Idle");
+    private final JButton startBtn = UiTheme.createButton(I18n.t("control.start"), UiTheme.START_BG, UiTheme.START_FG);
+    private final JButton stopBtn = UiTheme.createButton(I18n.t("control.stop"), UiTheme.STOP_BG, UiTheme.STOP_FG);
+    private final JButton toggleBtn = UiTheme.createButton(I18n.t("control.toggle"), UiTheme.TOGGLE_BG, UiTheme.TOGGLE_FG);
+    private final JButton saveBtn = UiTheme.createNeutralButton(I18n.t("control.save"));
+    private final JButton resetBtn = UiTheme.createNeutralButton(I18n.t("control.reset"));
+    private final JButton hotkeyBtn = UiTheme.createNeutralButton(I18n.t("control.hotkeys"));
+    private final JCheckBox failsafeCheck = new JCheckBox(I18n.t("control.failsafe"), true);
+    private final JLabel statusLabel = new JLabel(I18n.t("control.status", I18n.t("status.idle")));
 
     public AutomationControlBar(Listener listener) {
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
@@ -72,8 +76,11 @@ public class AutomationControlBar extends JPanel {
         add(row4);
 
         stopBtn.setEnabled(false);
-        toggleBtn.setEnabled(false);
-        toggleBtn.setToolTipText("Pause / Resume tanpa menghentikan run sepenuhnya");
+        // Toggle stays ENABLED while idle: it is now the Start path too
+        // (idle -> start, running -> pause, paused -> resume), so disabling it
+        // when nothing is running would make the unified control unreachable
+        // exactly when a user reaches for it.
+        toggleBtn.setToolTipText(I18n.t("control.toggle.tip"));
 
         startBtn.addActionListener(e -> listener.onStart());
         stopBtn.addActionListener(e -> listener.onStop());
@@ -84,19 +91,67 @@ public class AutomationControlBar extends JPanel {
         failsafeCheck.addActionListener(e -> listener.onFailsafeToggle(failsafeCheck.isSelected()));
     }
 
-    /** Reflects engine state in the buttons. Start disabled while running; Stop/Toggle enabled only then. */
+    /** Reflects engine state in the buttons. Start disabled while running; Stop enabled only then. */
     public void setRunningState(boolean running) {
         startBtn.setEnabled(!running);
         stopBtn.setEnabled(running);
-        toggleBtn.setEnabled(running);
+        // toggleBtn is deliberately left enabled in both states - see constructor.
     }
 
     public void setStatusText(String text) {
-        statusLabel.setText("Status: " + text);
+        statusLabel.setText(I18n.t("control.status", text));
+    }
+
+    /**
+     * Appends each button's bound hotkey to its label ("Start [F3]"), so the
+     * binding is discoverable without opening the hotkey dialog. Called again
+     * after the dialog closes, since a rebind must be reflected immediately.
+     *
+     * Unbound actions show no suffix rather than an empty bracket pair.
+     */
+    public void showHotkeyLabels(HotkeyBinding start, HotkeyBinding stop, HotkeyBinding toggle) {
+        startBtn.setText(withHotkey(I18n.t("control.start"), start));
+        stopBtn.setText(withHotkey(I18n.t("control.stop"), stop));
+        toggleBtn.setText(withHotkey(I18n.t("control.toggle"), toggle));
+    }
+
+    /**
+     * Same suffix treatment for any button outside this bar - the sequencer's
+     * Record button, for instance. Kept here beside {@link #withHotkey} so the
+     * bracket format cannot drift between the two call sites.
+     */
+    public static void showHotkeyLabel(javax.swing.JButton button, String baseLabel, HotkeyBinding binding) {
+        button.setText(withHotkey(baseLabel, binding));
+    }
+
+    private static String withHotkey(String label, HotkeyBinding binding) {
+        if (binding == null || binding.isUnbound()) {
+            return label;
+        }
+        return label + "  [" + binding.describe() + "]";
     }
 
     public void setFailsafeChecked(boolean enabled) {
         failsafeCheck.setSelected(enabled);
+    }
+
+    /**
+     * Brief red flash on the status line, paired with the beep from
+     * {@link com.automacropro.engine.FailsafeMonitor}, so a failsafe stop is
+     * unmistakably deliberate rather than looking like a crash.
+     *
+     * Uses a one-shot {@link Timer} (the Swing one, which fires on the EDT) and
+     * NOT Thread.sleep - this is called on the EDT and must return immediately.
+     */
+    public void flashFailsafe() {
+        statusLabel.setForeground(UiTheme.DANGER);
+        statusLabel.setFont(UiTheme.FONT_BODY.deriveFont(Font.BOLD));
+        Timer timer = new Timer(1200, e -> {
+            statusLabel.setForeground(UiTheme.MUTED_TEXT);
+            statusLabel.setFont(UiTheme.FONT_BODY.deriveFont(Font.ITALIC));
+        });
+        timer.setRepeats(false);
+        timer.start();
     }
 
     /**

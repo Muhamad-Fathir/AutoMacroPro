@@ -18,6 +18,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <!-- Single place to bump the JNativeHook version. -->
         <jnativehook.version>2.2.2</jnativehook.version>
+        <jna.version>5.14.0</jna.version>
         <mainClass>com.automacropro.Main</mainClass>
     </properties>
 
@@ -31,6 +32,25 @@
             <groupId>com.github.kwhat</groupId>
             <artifactId>jnativehook</artifactId>
             <version>${jnativehook.version}</version>
+        </dependency>
+
+        <!--
+            Window Manager tab only: Java has no API for restyling windows that
+            belong to OTHER processes, so the borderless feature needs the Win32
+            calls (SetWindowLong/SetWindowPos). jna-platform ships the ready-made
+            User32 bindings, which is why there is no hand-written JNI here.
+            Downloaded once at build time and shaded into the jar - the app itself
+            still makes zero network calls at runtime.
+        -->
+        <dependency>
+            <groupId>net.java.dev.jna</groupId>
+            <artifactId>jna</artifactId>
+            <version>${jna.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>net.java.dev.jna</groupId>
+            <artifactId>jna-platform</artifactId>
+            <version>${jna.version}</version>
         </dependency>
     </dependencies>
 
@@ -52,6 +72,10 @@
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>${mainClass}</mainClass>
+                                    <manifestEntries>
+                                        <!-- Silences the JDK 24+ restricted-method warning for JNA/JNativeHook. -->
+                                        <Enable-Native-Access>ALL-UNNAMED</Enable-Native-Access>
+                                    </manifestEntries>
                                 </transformer>
                             </transformers>
                         </configuration>
@@ -66,6 +90,17 @@
                 <version>3.2.0</version>
                 <configuration>
                     <mainClass>${mainClass}</mainClass>
+                    <!--
+                        Do NOT add <commandlineArgs> here. It binds to the
+                        `exec.args` property, and an explicit value in the POM
+                        overrides the -Dexec.args=... that NetBeans passes for
+                        Run Project (F6) - which is how it supplies the
+                        classpath and main class to the exec:exec goal. Setting
+                        it wipes both, so java is launched bare and answers with
+                        "Usage: java [java options...] <application>".
+                        The JDK 24+ native-access flag for JNA/JNativeHook lives
+                        in the jar manifest (see the shade plugin above) instead.
+                    -->
                 </configuration>
             </plugin>
         </plugins>

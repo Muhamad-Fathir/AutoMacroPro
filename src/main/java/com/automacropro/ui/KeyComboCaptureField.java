@@ -1,5 +1,6 @@
 package com.automacropro.ui;
 
+import com.automacropro.util.I18n;
 import com.automacropro.util.KeyCodeUtil;
 
 import javax.swing.JButton;
@@ -22,13 +23,13 @@ import java.util.List;
 public class KeyComboCaptureField extends JPanel {
 
     private final JTextField display = new JTextField(20);
-    private final JButton recordButton = new JButton("Record Key Combo");
+    private final JButton recordButton = new JButton(I18n.t("keycombo.record"));
     private List<Integer> vkCodes = new ArrayList<>();
 
     public KeyComboCaptureField() {
         setLayout(new FlowLayout(FlowLayout.LEFT, 6, 2));
         display.setEditable(false);
-        display.setText("(belum diatur)");
+        display.setText(I18n.t("common.unset"));
         add(display);
         add(recordButton);
 
@@ -36,7 +37,7 @@ public class KeyComboCaptureField extends JPanel {
     }
 
     private void startRecording() {
-        recordButton.setText("Tekan kombinasi tombol...");
+        recordButton.setText(I18n.t("keycombo.pressing"));
         recordButton.setEnabled(false);
         display.setText("...");
         display.requestFocusInWindow();
@@ -64,7 +65,7 @@ public class KeyComboCaptureField extends JPanel {
     private void finish(KeyAdapter recorder, List<Integer> codes) {
         vkCodes = codes;
         display.setText(describe(codes));
-        recordButton.setText("Record Key Combo");
+        recordButton.setText(I18n.t("keycombo.record"));
         recordButton.setEnabled(true);
         display.removeKeyListener(recorder);
     }

@@ -4,6 +4,7 @@ import com.automacropro.model.ClickMode;
 import com.automacropro.model.DragStyle;
 import com.automacropro.model.MouseActionConfig;
 import com.automacropro.model.MouseButtonType;
+import com.automacropro.util.I18n;
 
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
@@ -40,21 +41,20 @@ import java.awt.Font;
  */
 public class MouseActionConfigPanel extends JPanel {
 
-    private static final String EXTRA_NONE = "NONE";
     private static final String EXTRA_DRAG = "DRAG";
     private static final String EXTRA_HOLD = "HOLD";
 
-    private final JRadioButton btnLeft = new JRadioButton("Left", true);
-    private final JRadioButton btnRight = new JRadioButton("Right");
-    private final JRadioButton btnMiddle = new JRadioButton("Middle");
+    private final JRadioButton btnLeft = new JRadioButton(I18n.t("mouse.left"), true);
+    private final JRadioButton btnRight = new JRadioButton(I18n.t("mouse.right"));
+    private final JRadioButton btnMiddle = new JRadioButton(I18n.t("mouse.middle"));
     private final JComboBox<ClickMode> clickModeCombo = new JComboBox<>(ClickMode.values());
     private final CoordinatePickerField startPicker = new CoordinatePickerField(true);
 
     private final CardLayout extraCards = new CardLayout();
     private final JPanel extraPanel = new JPanel(extraCards);
 
-    private final JRadioButton dragInstant = new JRadioButton("Instant", false);
-    private final JRadioButton dragSmooth = new JRadioButton("Smooth Interpolated", true);
+    private final JRadioButton dragInstant = new JRadioButton(I18n.t("mouse.dragInstant"), false);
+    private final JRadioButton dragSmooth = new JRadioButton(I18n.t("mouse.dragSmooth"), true);
     private final JSpinner dragStepsSpinner = new JSpinner(new SpinnerNumberModel(30, 2, 500, 1));
     private final JSpinner dragDurationSpinner = new JSpinner(new SpinnerNumberModel(300, 10, 10000, 10));
     private final CoordinatePickerField dragToPicker = new CoordinatePickerField(false);
@@ -74,7 +74,7 @@ public class MouseActionConfigPanel extends JPanel {
         buttonRow.add(btnLeft);
         buttonRow.add(btnRight);
         buttonRow.add(btnMiddle);
-        addSectionRow("Mouse Button:", buttonRow);
+        addSectionRow(I18n.t("mouse.button"), buttonRow);
 
         // --- Baris 2: Interaksi Mouse (dropdown incl. Hold Click) ---
         clickModeCombo.setRenderer(new DefaultListCellRenderer() {
@@ -91,22 +91,24 @@ public class MouseActionConfigPanel extends JPanel {
         clickModeCombo.addActionListener(e -> updateExtraCard());
         JPanel comboRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
         comboRow.add(clickModeCombo);
-        addSectionRow("Interaksi Mouse:", comboRow);
+        addSectionRow(I18n.t("mouse.interaction"), comboRow);
 
         // --- Baris 3: Posisi Awal (Current Cursor / Fixed + X,Y + Pick Location) ---
         // startPicker no longer IS a container (see CoordinatePickerField javadoc) -
         // its two rows are added directly, at the same nesting depth as every other
         // section here (this is what was actually different before: this used to be
         // one extra JPanel level deeper than Mouse Button/Interaksi Mouse).
-        addSectionRow("Posisi Awal:", startPicker.getModeRow(), startPicker.getCoordRow());
+        addSectionRow(I18n.t("mouse.startPosition"), startPicker.getModeRow(), startPicker.getCoordRow());
 
         // --- Detail tambahan (Drag atau Hold), tampil sesuai pilihan dropdown di atas ---
         buildExtraCards();
-        extraPanel.setBorder(BorderFactory.createTitledBorder("Detail Tambahan"));
+        extraPanel.setBorder(UiTheme.titled(I18n.t("mouse.extraDetails")));
+        extraPanel.setOpaque(false);
         extraPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
         add(extraPanel);
 
         updateExtraCard();
+        NumericInput.hardenAll(this);
     }
 
     /** One labeled section: a bold label on its own line, then the content directly below it. */
@@ -125,10 +127,12 @@ public class MouseActionConfigPanel extends JPanel {
         JPanel section = new JPanel();
         section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
         section.setAlignmentX(Component.LEFT_ALIGNMENT);
+        section.setOpaque(false);
         section.setBorder(new EmptyBorder(4, 0, 4, 0));
 
         JLabel labelComp = new JLabel(label);
         labelComp.setFont(UiTheme.FONT_BODY.deriveFont(Font.BOLD));
+        labelComp.setForeground(UiTheme.ACCENT);
         labelComp.setAlignmentX(Component.LEFT_ALIGNMENT);
         section.add(labelComp);
 
@@ -161,21 +165,21 @@ public class MouseActionConfigPanel extends JPanel {
         JPanel dragPanel = new JPanel();
         dragPanel.setLayout(new BoxLayout(dragPanel, BoxLayout.Y_AXIS));
         JPanel styleRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
-        styleRow.add(new JLabel("Drag Style:"));
+        styleRow.add(new JLabel(I18n.t("mouse.dragStyle")));
         styleRow.add(dragInstant);
         styleRow.add(dragSmooth);
         styleRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         dragPanel.add(styleRow);
 
         JPanel stepsRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
-        stepsRow.add(new JLabel("Steps (smooth):"));
+        stepsRow.add(new JLabel(I18n.t("mouse.dragSteps")));
         stepsRow.add(dragStepsSpinner);
-        stepsRow.add(new JLabel("   Durasi (ms):"));
+        stepsRow.add(new JLabel("   " + I18n.t("mouse.dragDuration")));
         stepsRow.add(dragDurationSpinner);
         stepsRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         dragPanel.add(stepsRow);
 
-        JLabel dragToLabel = new JLabel("Posisi Tujuan:");
+        JLabel dragToLabel = new JLabel(I18n.t("mouse.dragTarget"));
         dragToLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         dragPanel.add(dragToLabel);
         dragToPicker.getCoordRow().setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -184,29 +188,38 @@ public class MouseActionConfigPanel extends JPanel {
         JPanel holdPanel = new JPanel();
         holdPanel.setLayout(new BoxLayout(holdPanel, BoxLayout.Y_AXIS));
         JPanel holdRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
-        holdRow.add(new JLabel("Hold Duration (ms):"));
+        holdRow.add(new JLabel(I18n.t("mouse.holdDuration")));
         holdRow.add(holdDurationSpinner);
         holdRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         holdPanel.add(holdRow);
-        JLabel hint = new JLabel("<html><i>Tombol akan ditekan selama durasi ini sebelum dilepas.<br>"
-                + "Failsafe pojok layar (jika aktif) tetap bisa membatalkan proses ini seketika.</i></html>");
+        JLabel hint = new JLabel(I18n.t("mouse.holdHint"));
         hint.setForeground(UiTheme.MUTED_TEXT);
         hint.setAlignmentX(Component.LEFT_ALIGNMENT);
         holdPanel.add(hint);
 
-        extraPanel.add(new JPanel(), EXTRA_NONE);
+        dragPanel.setOpaque(false);
+        holdPanel.setOpaque(false);
         extraPanel.add(dragPanel, EXTRA_DRAG);
         extraPanel.add(holdPanel, EXTRA_HOLD);
     }
 
+    /**
+     * Shows the Drag/Hold details, or hides the box entirely.
+     *
+     * The empty "EXTRA_NONE" card this used to show is gone, and that is the
+     * actual fix for the big empty "Detail Tambahan" rectangle: an empty JPanel
+     * inside a TitledBorder still occupies its full preferred height, so
+     * Single/Double Click always reserved a titled box with nothing in it. A
+     * container with nothing to say should not be on screen at all, so it is now
+     * hidden outright - no toggle button needed, and the space is genuinely
+     * reclaimed instead of merely collapsed.
+     */
     private void updateExtraCard() {
         ClickMode mode = (ClickMode) clickModeCombo.getSelectedItem();
-        if (mode == ClickMode.DRAG) {
-            extraCards.show(extraPanel, EXTRA_DRAG);
-        } else if (mode == ClickMode.HOLD) {
-            extraCards.show(extraPanel, EXTRA_HOLD);
-        } else {
-            extraCards.show(extraPanel, EXTRA_NONE);
+        boolean hasExtra = mode == ClickMode.DRAG || mode == ClickMode.HOLD;
+        extraPanel.setVisible(hasExtra);
+        if (hasExtra) {
+            extraCards.show(extraPanel, mode == ClickMode.DRAG ? EXTRA_DRAG : EXTRA_HOLD);
         }
         revalidate();
         repaint();
@@ -214,10 +227,10 @@ public class MouseActionConfigPanel extends JPanel {
 
     private static String displayClickMode(ClickMode m) {
         switch (m) {
-            case SINGLE: return "Single Click";
-            case DOUBLE: return "Double Click";
-            case DRAG: return "Drag (Tarik & Lepas)";
-            case HOLD: return "Hold Click (Tahan Klik)";
+            case SINGLE: return I18n.t("clickmode.single");
+            case DOUBLE: return I18n.t("clickmode.double");
+            case DRAG: return I18n.t("clickmode.drag");
+            case HOLD: return I18n.t("clickmode.hold");
             default: return m.name();
         }
     }

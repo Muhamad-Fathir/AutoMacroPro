@@ -12,7 +12,16 @@ import java.util.Map;
  */
 public class MacroProject {
 
-    public static final int FILE_FORMAT_VERSION = 2; // bumped: 1 -> 2 adds HOLD click mode
+    /**
+     * Bumped 2 -> 3 when per-step {@code preDelayMs} was added.
+     * Bumped 3 -> 4 when {@code SCROLL} action type was added.
+     *
+     * Nothing reads this value: {@link #fromMap} tolerates missing keys per
+     * field, so older files load correctly without a version check and the
+     * addition is purely additive. It is maintained as an honest marker for
+     * anyone inspecting a .amacro file by hand.
+     */
+    public static final int FILE_FORMAT_VERSION = 4;
 
     private String name = "Untitled Macro";
     private List<MacroStep> steps = new ArrayList<>();

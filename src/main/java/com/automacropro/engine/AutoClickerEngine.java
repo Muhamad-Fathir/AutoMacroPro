@@ -35,6 +35,9 @@ public class AutoClickerEngine {
     private volatile boolean failsafeTriggered = false;
     private Thread worker;
 
+    /** Interval-jitter source; only ever used on the worker thread. */
+    private final java.util.Random random = new java.util.Random();
+
     public AutoClickerEngine(Listener listener) throws AWTException {
         this.executor = new RobotExecutor();
         this.listener = listener;
@@ -118,7 +121,9 @@ public class AutoClickerEngine {
                     break;
                 }
 
-                boolean completedWait = PreciseTimer.sleep(settings.getIntervalMs(), abort);
+                // Humanizer: a fresh delay is drawn per click, so the gap varies
+                // shot to shot rather than being randomized once per run.
+                boolean completedWait = PreciseTimer.sleep(settings.nextIntervalMs(random), abort);
                 if (!completedWait) {
                     break; // reason resolved below from failsafeTriggered
                 }

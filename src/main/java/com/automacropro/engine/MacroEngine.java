@@ -27,8 +27,26 @@ public class MacroEngine {
 
     public interface Listener {
         void onStarted();
+
+        /**
+         * The 0-based index of the step about to execute, for the UI's
+         * active-step highlight. Delivered on the EDT and deliberately
+         * <b>throttled</b> - see {@link #STEP_UI_THROTTLE_MS}.
+         */
+        void onStepStarted(int stepIndex);
+
         void onFinished(long stepsExecuted, int loopsCompleted, StopReason reason);
     }
+
+    /**
+     * Minimum gap between active-step UI pushes. A sequence of instant actions
+     * iterates far faster than a human can read or a display can refresh, and
+     * one {@code invokeLater} per step would flood the EDT with repaints -
+     * the same reason {@code AutoClickerEngine} never pushes its click counter
+     * per click. Dropping intermediate frames costs nothing: the highlight is
+     * a progress hint, not a log.
+     */
+    private static final long STEP_UI_THROTTLE_MS = 60;
 
     private final RobotExecutor executor;
     private final Listener listener;
@@ -38,6 +56,12 @@ public class MacroEngine {
     private final AtomicBoolean stopRequested = new AtomicBoolean(false);
     private volatile boolean failsafeTriggered = false;
     private Thread worker;
+
+    /**
+     * Only ever read/written by the single worker thread (see
+     * {@link #publishActiveStep}), so it needs no volatile or atomic.
+     */
+    private long lastStepPushMs = 0;
 
     public MacroEngine(Listener listener) throws AWTException {
         this.executor = new RobotExecutor();
@@ -114,12 +138,13 @@ public class MacroEngine {
         try {
             outer:
             do {
+                int stepIndex = 0;
                 for (MacroStep step : project.getSteps()) {
                     waitWhilePaused(abort);
                     if (abort.getAsBoolean()) {
                         break outer;
                     }
-
+                    publishActiveStep(stepIndex++);
                     try {
                         executeStep(step, abort);
                     } catch (RuntimeException ex) {
@@ -162,11 +187,34 @@ public class MacroEngine {
     }
 
     /**
+     * Hands the active step index to the EDT, at most once per
+     * {@link #STEP_UI_THROTTLE_MS}. Called from the worker thread on the hot
+     * path, so it does no work beyond a clock read when throttled.
+     */
+    private void publishActiveStep(int stepIndex) {
+        if (listener == null) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (now - lastStepPushMs < STEP_UI_THROTTLE_MS) {
+            return;
+        }
+        lastStepPushMs = now;
+        SwingUtilities.invokeLater(() -> listener.onStepStarted(stepIndex));
+    }
+
+    /**
      * Routes a single step to the executor. MOUSE covers SINGLE / DOUBLE /
      * DRAG / HOLD uniformly (see class javadoc); KEYBOARD presses a combo
      * via {@code RobotExecutor.pressKeyCombo}; DELAY just waits.
      */
     private void executeStep(MacroStep step, BooleanSupplier abort) {
+        // Inline pre-delay, applied to every action type. Placed here rather
+        // than in runLoop so the step is already highlighted while its own
+        // pre-delay elapses - putting it in the loop would leave the PREVIOUS
+        // step lit during the wait. PreciseTimer short-circuits on <= 0, so a
+        // step without a pre-delay pays one comparison.
+        PreciseTimer.sleep(step.getPreDelayMs(), abort);
         switch (step.getType()) {
             case MOUSE:
                 executor.performMouseAction(step.getMouseConfig(), abort);
@@ -176,6 +224,11 @@ public class MacroEngine {
                 break;
             case DELAY:
                 PreciseTimer.sleep(step.getDelayMs(), abort);
+                break;
+            case SCROLL:
+                if (step.getScrollConfig() != null) {
+                    executor.scroll(step.getScrollConfig().getWheelAmount());
+                }
                 break;
             default:
                 AppLogger.warn("ActionType tidak dikenal: " + step.getType(), null);

@@ -3,6 +3,7 @@ package com.automacropro.persistence;
 import com.automacropro.json.SimpleJson;
 import com.automacropro.model.MacroProject;
 import com.automacropro.util.AppLogger;
+import com.automacropro.util.I18n;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -48,14 +49,14 @@ public final class MacroProjectIO {
                 MacroProject project = MacroProject.fromMap((Map<String, Object>) parsed);
                 return new LoadResult(project, true, null);
             }
-            return new LoadResult(new MacroProject(), false, "Format file tidak dikenali (bukan objek JSON).");
+            return new LoadResult(new MacroProject(), false, I18n.t("io.notJson"));
         } catch (IOException ex) {
             AppLogger.error("Gagal membaca file project: " + file, ex);
-            return new LoadResult(new MacroProject(), false, "Gagal membaca file: " + ex.getMessage());
+            return new LoadResult(new MacroProject(), false, I18n.t("io.readFailed", ex.getMessage()));
         } catch (RuntimeException ex) {
             // Covers SimpleJson.JsonParseException and any unexpected parsing issue.
             AppLogger.error("Gagal mem-parse file project: " + file, ex);
-            return new LoadResult(new MacroProject(), false, "File project rusak atau tidak valid: " + ex.getMessage());
+            return new LoadResult(new MacroProject(), false, I18n.t("io.corrupt", ex.getMessage()));
         }
     }
 

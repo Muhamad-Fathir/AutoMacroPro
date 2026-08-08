@@ -4,6 +4,7 @@ import com.automacropro.hotkey.GlobalHotkeyManager;
 import com.automacropro.hotkey.PositionPicker;
 import com.automacropro.model.PositionMode;
 import com.automacropro.util.AppLogger;
+import com.automacropro.util.I18n;
 
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
@@ -47,11 +48,11 @@ import java.awt.FlowLayout;
 public class CoordinatePickerField {
 
     private final boolean allowCurrentCursor;
-    private final JRadioButton currentCursorRadio = new JRadioButton("Current Cursor");
-    private final JRadioButton fixedRadio = new JRadioButton("Fixed Coordinate", true);
+    private final JRadioButton currentCursorRadio = new JRadioButton(I18n.t("coord.currentCursor"));
+    private final JRadioButton fixedRadio = new JRadioButton(I18n.t("coord.fixed"), true);
     private final JSpinner xSpinner = new JSpinner(new SpinnerNumberModel(0, -20000, 20000, 1));
     private final JSpinner ySpinner = new JSpinner(new SpinnerNumberModel(0, -20000, 20000, 1));
-    private final JButton pickButton = UiTheme.createNeutralButton("Pick Location");
+    private final JButton pickButton = UiTheme.createNeutralButton(I18n.t("coord.pick"));
     private final Color defaultSpinnerBg;
     private final JPanel modeRow; // null when !allowCurrentCursor
     private final JPanel coordRow;
@@ -98,12 +99,6 @@ public class CoordinatePickerField {
         updateEnabledState();
 
         pickButton.addActionListener(e -> onPickClicked());
-
-        // Kept from the previous diagnostic round in case this still isn't enough -
-        // now anchored off coordRow (always present) instead of "this" (removed).
-        Timer diagTimer = new Timer(1200, ev -> logDiagnostics());
-        diagTimer.setRepeats(false);
-        diagTimer.start();
     }
 
     /** Row A: Current Cursor / Fixed Coordinate radios. Null when !allowCurrentCursor. */
@@ -114,89 +109,6 @@ public class CoordinatePickerField {
     /** Row B: X/Y spinners + Pick Location button. Always present. */
     public JPanel getCoordRow() {
         return coordRow;
-    }
-
-    private void logDiagnostics() {
-        AppLogger.info("DIAG ---- CoordinatePickerField diagnostic dump (post-flatten) ----");
-        AppLogger.info("DIAG modeRow       " + describe(modeRow));
-        AppLogger.info("DIAG currentCursor " + describe(currentCursorRadio));
-        AppLogger.info("DIAG fixedRadio    " + describe(fixedRadio));
-        AppLogger.info("DIAG coordRow      " + describe(coordRow));
-        AppLogger.info("DIAG pickButton    " + describe(pickButton));
-        try {
-            java.awt.Robot robot = new java.awt.Robot();
-            scanRegion(robot, "currentCursorRadio", currentCursorRadio);
-            scanRegion(robot, "fixedRadio", fixedRadio);
-            scanRegion(robot, "pickButton", pickButton);
-            scanRegion(robot, "xSpinner", xSpinner);
-            saveWindowScreenshot(robot, coordRow);
-        } catch (Exception ex) {
-            AppLogger.info("DIAG pixel sampling unavailable: " + ex);
-        }
-        AppLogger.info("DIAG ---- end diagnostic dump ----");
-    }
-
-    private static void scanRegion(java.awt.Robot robot, String label, Component c) {
-        if (c == null || !c.isShowing() || c.getWidth() <= 0 || c.getHeight() <= 0) {
-            AppLogger.info("DIAG scan@" + label + " = component not showing/zero-size, skipped");
-            return;
-        }
-        java.awt.Point onScreen = c.getLocationOnScreen();
-        java.awt.Rectangle region = new java.awt.Rectangle(onScreen.x, onScreen.y, c.getWidth(), c.getHeight());
-        java.awt.image.BufferedImage img = robot.createScreenCapture(region);
-        int bg = c.getBackground().getRGB() & 0xFFFFFF;
-        int totalPixels = img.getWidth() * img.getHeight();
-        int differing = 0;
-        int darkest = 0xFFFFFF;
-        int darkestLuma = 255;
-        for (int y = 0; y < img.getHeight(); y++) {
-            for (int x = 0; x < img.getWidth(); x++) {
-                int rgb = img.getRGB(x, y) & 0xFFFFFF;
-                if (rgb != bg) {
-                    differing++;
-                }
-                int r = (rgb >> 16) & 0xFF, g = (rgb >> 8) & 0xFF, b = rgb & 0xFF;
-                int luma = (r + g + b) / 3;
-                if (luma < darkestLuma) {
-                    darkestLuma = luma;
-                    darkest = rgb;
-                }
-            }
-        }
-        double pct = 100.0 * differing / totalPixels;
-        AppLogger.info(String.format(
-                "DIAG scan@%s region=%s bgColor=#%06X differingPixels=%d/%d (%.1f%%) darkestPixelFound=#%06X",
-                label, region, bg, differing, totalPixels, pct, darkest));
-    }
-
-    private static void saveWindowScreenshot(java.awt.Robot robot, Component anyChild) {
-        try {
-            java.awt.Window win = SwingUtilities.getWindowAncestor(anyChild);
-            if (win == null) {
-                return;
-            }
-            java.awt.Rectangle bounds = win.getBounds();
-            java.awt.image.BufferedImage img = robot.createScreenCapture(bounds);
-            java.io.File out = new java.io.File(System.getProperty("java.io.tmpdir"), "automacropro_diag_screenshot.png");
-            javax.imageio.ImageIO.write(img, "png", out);
-            AppLogger.info("DIAG saved window screenshot to " + out.getAbsolutePath());
-        } catch (Exception ex) {
-            AppLogger.info("DIAG could not save window screenshot: " + ex);
-        }
-    }
-
-    private static String describe(Component c) {
-        if (c == null) {
-            return "null";
-        }
-        boolean opaque = (c instanceof javax.swing.JComponent) && ((javax.swing.JComponent) c).isOpaque();
-        return c.getClass().getSimpleName()
-                + " bounds=" + c.getBounds()
-                + " visible=" + c.isVisible()
-                + " showing=" + c.isShowing()
-                + " opaque=" + opaque
-                + " bg=" + c.getBackground()
-                + " fg=" + c.getForeground();
     }
 
     private void updateEnabledState() {
@@ -214,7 +126,7 @@ public class CoordinatePickerField {
             return;
         }
         final String original = pickButton.getText();
-        pickButton.setText("Klik di mana saja...");
+        pickButton.setText(I18n.t("coord.picking"));
         pickButton.setEnabled(false);
         PositionPicker.captureNextClick(point -> {
             xSpinner.setValue(point.x);

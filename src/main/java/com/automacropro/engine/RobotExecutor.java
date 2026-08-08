@@ -4,6 +4,7 @@ import com.automacropro.model.MouseActionConfig;
 import com.automacropro.model.MouseButtonType;
 import com.automacropro.model.PositionMode;
 import com.automacropro.util.AppLogger;
+import com.automacropro.util.ScreenCoords;
 
 import java.awt.AWTException;
 import java.awt.MouseInfo;
@@ -29,6 +30,14 @@ public class RobotExecutor {
 
     private final Robot robot;
 
+    /**
+     * Humanizer jitter source. One instance per executor and only ever touched
+     * by that executor's single worker thread, so the unsynchronized
+     * {@code java.util.Random} is safe here and avoids ThreadLocalRandom's
+     * shared state. Not seeded deliberately - unpredictability is the feature.
+     */
+    private final java.util.Random random = new java.util.Random();
+
     public RobotExecutor() throws AWTException {
         robot = new Robot();
         // We manage all timing ourselves via PreciseTimer, so Robot should not
@@ -37,8 +46,27 @@ public class RobotExecutor {
         robot.setAutoWaitForIdle(false);
     }
 
+    /**
+     * The cursor position in the app's storage space (physical pixels), so it
+     * round-trips correctly with coordinates captured by Pick Location.
+     * {@code MouseInfo} itself reports logical, DPI-scaled coordinates.
+     */
     public Point getCurrentCursor() {
-        return MouseInfo.getPointerInfo().getLocation();
+        return ScreenCoords.toStoredSpace(MouseInfo.getPointerInfo().getLocation());
+    }
+
+    /**
+     * The single place a coordinate leaves the app and reaches the OS.
+     *
+     * Every stored coordinate is physical (see {@link ScreenCoords}), but
+     * {@code Robot} steers in logical, DPI-scaled space - feeding it physical
+     * coordinates landed clicks 240x135 px off target on a 125% monitor while
+     * being exact on the 100% primary. Routing all six move sites through here
+     * means the conversion cannot be forgotten at one of them.
+     */
+    private void moveTo(int physicalX, int physicalY) {
+        Point logical = ScreenCoords.toRobotSpace(physicalX, physicalY);
+        robot.mouseMove(logical.x, logical.y);
     }
 
     private static int buttonMask(MouseButtonType button) {
@@ -53,10 +81,35 @@ public class RobotExecutor {
     }
 
     private Point resolveStartPoint(MouseActionConfig cfg) {
-        if (cfg.getPositionMode() == PositionMode.CURRENT_CURSOR) {
-            return getCurrentCursor();
+        Point base = cfg.getPositionMode() == PositionMode.CURRENT_CURSOR
+                ? getCurrentCursor()
+                : new Point(cfg.getX(), cfg.getY());
+        return scatter(base, cfg.getPositionJitterPx());
+    }
+
+    /**
+     * Humanizer: displaces a target uniformly within a disc of {@code radius}
+     * px. Returns the point untouched when the radius is 0 (the default), so
+     * exact targeting stays exact.
+     *
+     * Samples with {@code sqrt(u)} rather than a plain uniform radius: picking
+     * the radius uniformly would concentrate points near the centre, since the
+     * area of an annulus grows with r. That produces a visibly tighter cluster
+     * than a human hand and defeats the point of the feature.
+     *
+     * Runs in physical (stored) coordinate space, i.e. before {@code moveTo}
+     * converts to Robot's logical space, so a 5px radius is 5 real pixels on
+     * every monitor regardless of its DPI scale.
+     */
+    private Point scatter(Point base, int radius) {
+        if (radius <= 0) {
+            return base;
         }
-        return new Point(cfg.getX(), cfg.getY());
+        double angle = random.nextDouble() * 2 * Math.PI;
+        double distance = radius * Math.sqrt(random.nextDouble());
+        return new Point(
+                base.x + (int) Math.round(Math.cos(angle) * distance),
+                base.y + (int) Math.round(Math.sin(angle) * distance));
     }
 
     /**
@@ -80,7 +133,11 @@ public class RobotExecutor {
                 click(start, mask);
                 break;
             case DRAG:
-                drag(start, new Point(cfg.getDragToX(), cfg.getDragToY()), cfg, mask, abortCondition);
+                // Scatter the destination independently of the start, so a
+                // jittered drag varies at both ends rather than sliding a
+                // rigid vector around.
+                Point end = scatter(new Point(cfg.getDragToX(), cfg.getDragToY()), cfg.getPositionJitterPx());
+                drag(start, end, cfg, mask, abortCondition);
                 break;
             case HOLD:
                 hold(start, mask, cfg.getHoldDurationMs(), abortCondition);
@@ -90,8 +147,19 @@ public class RobotExecutor {
         }
     }
 
+    /**
+     * Rotates the mouse wheel. {@code amount} follows Robot's convention:
+     * negative scrolls up (away from the user), positive scrolls down. There is
+     * no press/release pair to leak, so no try/finally is needed here.
+     */
+    public void scroll(int amount) {
+        if (amount != 0) {
+            robot.mouseWheel(amount);
+        }
+    }
+
     private void click(Point p, int mask) {
-        robot.mouseMove(p.x, p.y);
+        moveTo(p.x, p.y);
         robot.mousePress(mask);
         robot.mouseRelease(mask);
     }
@@ -102,7 +170,7 @@ public class RobotExecutor {
      * pressed at the OS level if the failsafe/Stop fires mid-hold.
      */
     private void hold(Point p, int mask, long holdMs, BooleanSupplier abortCondition) {
-        robot.mouseMove(p.x, p.y);
+        moveTo(p.x, p.y);
         robot.mousePress(mask);
         try {
             PreciseTimer.sleep(holdMs, abortCondition);
@@ -112,12 +180,12 @@ public class RobotExecutor {
     }
 
     private void drag(Point from, Point to, MouseActionConfig cfg, int mask, BooleanSupplier abortCondition) {
-        robot.mouseMove(from.x, from.y);
+        moveTo(from.x, from.y);
         robot.mousePress(mask);
         try {
             switch (cfg.getDragStyle()) {
                 case INSTANT:
-                    robot.mouseMove(to.x, to.y);
+                    moveTo(to.x, to.y);
                     break;
                 case SMOOTH:
                 default: {
@@ -127,9 +195,12 @@ public class RobotExecutor {
                         if (abortCondition.getAsBoolean()) {
                             break; // stop moving early; release still happens in finally
                         }
+                        // Interpolate in physical space (both endpoints are stored
+                        // physical), then convert each waypoint - so a drag that
+                        // crosses between monitors of different scale stays straight.
                         int ix = from.x + (to.x - from.x) * i / steps;
                         int iy = from.y + (to.y - from.y) * i / steps;
-                        robot.mouseMove(ix, iy);
+                        moveTo(ix, iy);
                         PreciseTimer.sleep(stepDelay, abortCondition);
                     }
                     break;
